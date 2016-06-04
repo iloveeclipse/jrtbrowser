@@ -25,6 +25,7 @@ import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.DoubleClickEvent;
+import org.eclipse.jface.viewers.IContentProvider;
 import org.eclipse.jface.viewers.IDoubleClickListener;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
@@ -343,7 +344,10 @@ public class JrtBrowserView extends ViewPart {
 
 	@Override
 	public void dispose() {
-		viewer.getContentProvider().dispose();
+		IContentProvider provider = viewer.getContentProvider();
+		if(provider != null) {
+			provider.dispose();
+		}
 		super.dispose();
 	}
 }
