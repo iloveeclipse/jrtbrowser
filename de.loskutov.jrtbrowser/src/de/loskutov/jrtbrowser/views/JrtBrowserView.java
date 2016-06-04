@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -183,15 +184,21 @@ public class JrtBrowserView extends ViewPart {
 			return false;
 		}
 
-		/*
-		 * We will set up a dummy model to initialize tree heararchy. In a real
-		 * code, you will connect to a real model and expose its hierarchy.
-		 */
 		private void initialize() {
-			FileSystem fs;
 			try {
-				fs = ja.createFs(System.getProperty("java.home"));
-				invisibleRoot = new TreeParent(fs.getPath("/"));
+				FileSystem fs = null;
+				if(System.getProperty("java.version").startsWith("9")){
+					fs = ja.createFs(System.getProperty("java.home"));
+				} else {
+					// TODO offer selection dialog or something
+					Path jvmPath = Paths.get("/usr/lib/jvm/java-1.9.0");
+					if(Files.isDirectory(jvmPath)){
+						fs = ja.createFs(jvmPath.toString());
+					}
+				}
+				if(fs != null) {
+					invisibleRoot = new TreeParent(fs.getPath("/"));
+				}
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
