@@ -30,14 +30,26 @@ public class JrtAccess {
 	Map<FileSystem, Map<String, String>> packages = new HashMap<>();
 
 	public static void main(String[] args) throws Exception {
+		if(args.length == 0){
+			System.out.println("Please provide valid Java 9 home directory path");
+			return;
+		}
 		JrtAccess ja = new JrtAccess();
 		FileSystem fs = ja.createFs(args[0]);
+		if(fs == null){
+			System.out.println(args[0] + " is not a valid Java 9 home directory path");
+			return;
+		}
 		Map<String, String> moduleMap = ja.createPackageToModuleMap(fs);
 		moduleMap.forEach((x, y) -> System.out.println(x + " -> " + y));
 	}
 
 	public FileSystem createFs(String jdkHome) throws IOException {
-		URL url = Paths.get(jdkHome, "jrt-fs.jar").toUri().toURL();
+		Path path = Paths.get(jdkHome, "jrt-fs.jar");
+		if(!Files.isRegularFile(path)){
+			return null;
+		}
+		URL url = path.toUri().toURL();
 		URLClassLoader loader = new URLClassLoader(new URL[] { url });
 		FileSystem fs = FileSystems.newFileSystem(URI.create("jrt:/"),
 				Collections.emptyMap(),
