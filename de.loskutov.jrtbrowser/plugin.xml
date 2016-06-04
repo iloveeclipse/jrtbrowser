@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   <extension
+         point="org.eclipse.ui.views">
+      <category
+            name="JRT Browser"
+            id="de.loskutov.jrtbrowser">
+      </category>
+      <view
+            name="JRT Browser"
+            icon="icons/sample.gif"
+            category="de.loskutov.jrtbrowser"
+            class="de.loskutov.jrtbrowser.views.JrtBrowserView"
+            id="de.loskutov.jrtbrowser.views.JrtBrowserView">
+      </view>
+   </extension>
+   <extension
+         point="org.eclipse.ui.perspectiveExtensions">
+      <perspectiveExtension
+            targetID="org.eclipse.jdt.ui.JavaPerspective">
+         <view
+               ratio="0.5"
+               relative="org.eclipse.ui.views.ProblemView"
+               relationship="right"
+               id="de.loskutov.jrtbrowser.views.JrtBrowserView">
+         </view>
+      </perspectiveExtension>
+   </extension>
+
+</plugin>
