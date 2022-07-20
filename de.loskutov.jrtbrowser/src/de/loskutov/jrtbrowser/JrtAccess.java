@@ -13,10 +13,12 @@ import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystemAlreadyExistsException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.ProviderNotFoundException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -35,7 +37,7 @@ public class JrtAccess {
 			return;
 		}
 		JrtAccess ja = new JrtAccess();
-		FileSystem fs = ja.createFs(args[0]);
+		FileSystem fs = ja.createJfs(args[0]);
 		if(fs == null){
 			System.out.println(args[0] + " is not a valid Java 9 home directory path");
 			return;
@@ -44,8 +46,8 @@ public class JrtAccess {
 		moduleMap.forEach((x, y) -> System.out.println(x + " -> " + y));
 	}
 
-	public FileSystem createFs(String jdkHome) throws IOException {
-		Path path = Paths.get(jdkHome, "jrt-fs.jar");
+	public FileSystem createJfs(String jdkHome) throws IOException {
+		Path path = Paths.get(jdkHome, "lib/jrt-fs.jar");
 		if(!Files.isRegularFile(path)){
 			return null;
 		}
@@ -59,6 +61,34 @@ public class JrtAccess {
 		//		Files.walk(top).filter(Files::isRegularFile).forEach(System.out::println);
 		//		Files.walk(top).filter(Files::isDirectory).forEach(System.out::println);
 		return fs;
+	}
+
+	public FileSystem createCtsym(String jdkHome) throws IOException {
+		Path path = Paths.get(jdkHome, "lib/ct.sym");
+		if(!Files.isRegularFile(path)){
+			return null;
+		}
+		FileSystem fst = null;
+		URI uri = URI.create("jar:file:" + path.toUri().getRawPath()); //$NON-NLS-1$
+		try {
+			fst = FileSystems.getFileSystem(uri);
+		} catch (Exception fne) {
+			// Ignore and move on
+		}
+		if (fst == null) {
+			try {
+				fst = FileSystems.newFileSystem(uri, new HashMap<>(), ClassLoader.getSystemClassLoader());
+			} catch (FileSystemAlreadyExistsException e) {
+				fst = FileSystems.getFileSystem(uri);
+			} catch (ProviderNotFoundException e) {
+				throw new IOException("Failed to create ct.sym file system for " + path, e); //$NON-NLS-1$
+			}
+		}
+		systems.put(jdkHome, fst);
+		//		Path top = fs.getPath("/");
+		//		Files.walk(top).filter(Files::isRegularFile).forEach(System.out::println);
+		//		Files.walk(top).filter(Files::isDirectory).forEach(System.out::println);
+		return fst;
 	}
 
 	public Map<String, String> createPackageToModuleMap(FileSystem fs) throws IOException{
@@ -85,6 +115,7 @@ public class JrtAccess {
 	}
 
 	static String fileName(Path p){
-		return p.getFileName().toString();
+		Path fileName = p.getFileName();
+		return fileName == null? "/" : fileName.toString();
 	}
 }

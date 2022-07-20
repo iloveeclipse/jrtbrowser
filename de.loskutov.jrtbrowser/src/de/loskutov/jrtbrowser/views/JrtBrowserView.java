@@ -9,15 +9,19 @@
 
 package de.loskutov.jrtbrowser.views;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.core.runtime.IAdaptable;
+import org.eclipse.jdt.launching.IVMInstall;
+import org.eclipse.jdt.launching.IVMInstallType;
+import org.eclipse.jdt.launching.JavaRuntime;
+import org.eclipse.jdt.launching.VMStandin;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
@@ -62,13 +66,21 @@ public class JrtBrowserView extends ViewPart {
 	class TreeObject implements IAdaptable {
 		private TreeParent parent;
 		final Path path;
+		private final String name;
 
 		public TreeObject(Path path) {
 			this.path = path;
+			Path fileName = path.getFileName();
+			this.name = fileName == null? "/" : fileName.toString();
+		}
+
+		public TreeObject(String name) {
+			this.path = null;
+			this.name = name;
 		}
 
 		public String getName() {
-			return path.getFileName().toString();
+			return name;
 		}
 
 		public void setParent(TreeParent parent) {
@@ -98,6 +110,10 @@ public class JrtBrowserView extends ViewPart {
 			super(path);
 			children = new ArrayList<>();
 		}
+		public TreeParent(String name) {
+			super(name);
+			children = new ArrayList<>();
+		}
 
 		public void addChild(TreeObject child) {
 			children.add(child);
@@ -125,6 +141,9 @@ public class JrtBrowserView extends ViewPart {
 
 		private synchronized void initialize() {
 			try {
+				if(path == null) {
+					return;
+				}
 				Files.list(path).forEach(p -> {
 					if(Files.isDirectory(p)) {
 						addChild(new TreeParent(p));
@@ -184,23 +203,49 @@ public class JrtBrowserView extends ViewPart {
 			return false;
 		}
 
+		/**
+		 * Populates the JRE table with existing JREs defined in the workspace.
+		 */
+		protected List<VMStandin> getWorkspaceJREs() {
+			// fill with JREs
+			List<VMStandin> standins = new ArrayList<>();
+			IVMInstallType[] types = JavaRuntime.getVMInstallTypes();
+			for (IVMInstallType type : types) {
+				IVMInstall[] installs = type.getVMInstalls();
+				for (IVMInstall install : installs) {
+					standins.add(new VMStandin(install));
+				}
+			}
+			return standins;
+		}
+
 		private void initialize() {
-			try {
-				FileSystem fs = null;
-				if(System.getProperty("java.version").startsWith("9")){
-					fs = ja.createFs(System.getProperty("java.home"));
-				} else {
-					// TODO offer selection dialog or something
-					Path jvmPath = Paths.get("/usr/lib/jvm/java-1.9.0");
-					if(Files.isDirectory(jvmPath)){
-						fs = ja.createFs(jvmPath.toString());
-					}
+			invisibleRoot = new TreeParent("JRE's defined in workspace");
+			List<VMStandin> workspaceJREs = getWorkspaceJREs();
+			for (VMStandin vm : workspaceJREs) {
+				String javaVersion = vm.getJavaVersion();
+				File installLocation = vm.getInstallLocation();
+				String name = vm.getName();
+				if(javaVersion.startsWith("1.")) {
+					continue;
 				}
-				if(fs != null) {
-					invisibleRoot = new TreeParent(fs.getPath("/"));
+				try {
+					FileSystem fs =  ja.createJfs(installLocation.toString());
+					TreeParent jvm = new TreeParent(name);
+					invisibleRoot.addChild(jvm);
+					jvm.setParent(invisibleRoot);
+					TreeParent jfs = new TreeParent(fs.getPath("/"));
+					jvm.addChild(jfs);
+					jfs.setParent(jvm);
+
+					fs = ja.createCtsym(installLocation.toString());
+					TreeParent cts = new TreeParent(fs.getPath("/"));
+					jvm.addChild(cts);
+					cts.setParent(jvm);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
 		}
 
@@ -210,7 +255,7 @@ public class JrtBrowserView extends ViewPart {
 		}
 	}
 
-	class ViewLabelProvider extends LabelProvider {
+	static class ViewLabelProvider extends LabelProvider {
 
 		@Override
 		public String getText(Object obj) {
